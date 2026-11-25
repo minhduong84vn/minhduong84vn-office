@@ -1,0 +1,13 @@
+# Logs & runtime files
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local certificates (optional - self signed localhost)
+certs/localhost.key

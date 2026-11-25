@@ -1,0 +1,22 @@
+{
+  "name": "gemini-office-addin",
+  "version": "1.0.0",
+  "description": "Google Gemini AI Assistant for Microsoft Word & Excel",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node dev-server.mjs",
+    "serve": "node dev-server.mjs"
+  },
+  "keywords": [
+    "office-addin",
+    "word",
+    "excel",
+    "gemini",
+    "ai",
+    "google-gemini",
+    "taskpane"
+  ],
+  "author": "Antigravity Assistant",
+  "license": "MIT"
+}

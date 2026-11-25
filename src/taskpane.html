@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trợ lý AI MinhDuong84vn</title>
+  <!-- Office JavaScript API -->
+  <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <link rel="stylesheet" href="taskpane.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="brand">
+      <div class="gemini-sparkle">✦</div>
+      <div>
+        <div class="brand-title">MinhDuong84vn Office AI</div>
+      </div>
+      <span id="hostBadge" class="host-badge">Office</span>
+    </div>
+    <div class="header-actions">
+      <button id="btnTranslation" class="icon-btn" title="Dịch thuật chuyên ngành & Từ điển">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      </button>
+      <button id="btnClear" class="icon-btn" title="Xóa lịch sử trò chuyện">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+      </button>
+      <button id="btnSettings" class="icon-btn" title="Cài đặt API Key & Model">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Settings Panel (Collapsible) -->
+  <section id="settingsPanel" class="settings-panel">
+    <!-- Provider Selector Tabs -->
+    <div class="form-group" style="margin-bottom: 10px;">
+      <label style="font-weight: 600; font-size: 11.5px; margin-bottom: 5px; display: block;">Nhà cung cấp AI:</label>
+      <div style="display: flex; gap: 6px;">
+        <button type="button" id="tabProviderGoogle" class="provider-tab active" data-provider="google">
+          ✦ Google Gemini
+        </button>
+        <button type="button" id="tabProviderDeepSeek" class="provider-tab" data-provider="deepseek">
+          🐳 DeepSeek / Mô hình mở
+        </button>
+      </div>
+    </div>
+
+    <!-- GOOGLE GEMINI SETTINGS -->
+    <div id="googleSettingsGroup">
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <label for="apiKeyInput" style="margin-bottom: 0;">Danh sách Gemini API Key (Mỗi key 1 dòng):</label>
+          <span id="keyCounterBadge" style="font-size: 10px; font-weight: 600; color: #2563eb; background: #dbeafe; padding: 1px 6px; border-radius: 8px;">0 Key</span>
+        </div>
+        <textarea id="apiKeyInput" class="input-text" rows="3" placeholder="AQ.Ab8... (Hoặc AIzaSy...)" style="font-family: Consolas, monospace; font-size: 11px;"></textarea>
+        <small style="font-size: 10.5px; color: #64748b; margin-top: 3px; display: block; line-height: 1.35;">
+          💡 <b>Tự động xoay vòng:</b> Nhập nhiều API Key từ các tài khoản Gmail khác nhau để nhân gấp nhiều lần hạn mức Free Tier và tự động đổi key khi bị chạm giới hạn Quota.
+        </small>
+      </div>
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <label for="modelSelect" style="margin-bottom: 0;">Mô hình AI:</label>
+          <button type="button" id="btnFetchModels" class="btn-act" style="font-size: 10.5px; padding: 2px 6px; background: #e0f2fe; color: #0369a1; border-color: #7dd3fc;">
+            🔄 Lấy danh sách từ Google
+          </button>
+        </div>
+        <select id="modelSelect" class="select-input">
+          <option value="gemini-3.6-flash">Gemini 3.6 Flash (Khuyên dùng - Ổn định nhất, Không bị 503, Cực nhanh)</option>
+          <option value="gemini-3.8-flash">Gemini 3.8 Flash (Thế hệ 3.8 mới nhất - thỉnh thoảng cao điểm có thể gặp 503)</option>
+          <option value="gemini-3.6-pro">Gemini 3.6 Pro (Lập luận sâu, suy nghĩ đa bước)</option>
+          <option value="gemini-3.8-pro">Gemini 3.8 Pro (Phân tích dữ liệu phức tạp)</option>
+          <option value="gemini-3.7-flash">Gemini 3.7 Flash (Bản 3.7 ổn định)</option>
+          <option value="custom">✏️ Nhập mã mô hình khác thủ công...</option>
+        </select>
+      </div>
+      <div id="customModelGroup" class="form-group" style="display: none;">
+        <label for="customModelInput">Mã mô hình tùy chọn (Model ID):</label>
+        <input type="text" id="customModelInput" class="input-text" placeholder="Ví dụ: gemini-3.6-flash hoặc mã mô hình mới..." />
+      </div>
+    </div>
+
+    <!-- DEEPSEEK / OPENAI-COMPATIBLE SETTINGS -->
+    <div id="deepseekSettingsGroup" style="display: none;">
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <label for="deepseekKeyInput" style="margin-bottom: 0;">DeepSeek / OpenAI API Key (Mỗi key 1 dòng):</label>
+          <span id="deepseekKeyBadge" style="font-size: 10px; font-weight: 600; color: #059669; background: #d1fae5; padding: 1px 6px; border-radius: 8px;">0 Key</span>
+        </div>
+        <textarea id="deepseekKeyInput" class="input-text" rows="2" placeholder="sk-..." style="font-family: Consolas, monospace; font-size: 11px;"></textarea>
+        <small style="font-size: 10.5px; color: #64748b; margin-top: 3px; display: block; line-height: 1.35;">
+          🎁 <b>Khuyến mại / Chi phí siêu rẻ:</b> Dùng cho các đợt tặng token khuyến mại từ DeepSeek (platform.deepseek.com) hoặc Groq, Together AI, OpenRouter.
+        </small>
+      </div>
+      <div class="form-group">
+        <label for="deepseekModelSelect">Mô hình DeepSeek:</label>
+        <select id="deepseekModelSelect" class="select-input">
+          <option value="deepseek-chat">deepseek-chat (DeepSeek-V3: Siêu nhanh, thông minh & kinh tế)</option>
+          <option value="deepseek-reasoner">deepseek-reasoner (DeepSeek-R1: Suy luận logic, toán học chuyên sâu)</option>
+          <option value="custom">✏️ Nhập mã mô hình khác thủ công...</option>
+        </select>
+      </div>
+      <div id="customDeepseekModelGroup" class="form-group" style="display: none;">
+        <label for="customDeepseekModelInput">Mã mô hình tùy chọn:</label>
+        <input type="text" id="customDeepseekModelInput" class="input-text" placeholder="Ví dụ: deepseek-chat hoặc llama-3.3-70b-versatile..." />
+      </div>
+      <div class="form-group">
+        <label for="deepseekEndpointInput">API Endpoint (OpenAI Compatible):</label>
+        <input type="text" id="deepseekEndpointInput" class="input-text" value="https://api.deepseek.com/chat/completions" placeholder="https://api.deepseek.com/chat/completions" style="font-size: 11px;" />
+        <small style="font-size: 10px; color: #64748b; margin-top: 2px; display: block;">
+          Mặc định DeepSeek: <code>https://api.deepseek.com/chat/completions</code> (hoặc đổi sang OpenRouter / Groq nếu có khuyến mại).
+        </small>
+      </div>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+      <button id="btnSaveSettings" class="btn-primary">Lưu cấu hình</button>
+    </div>
+  </section>
+
+  <!-- Translation & Glossary Panel (Collapsible) -->
+  <section id="translationPanel" class="settings-panel" style="display: none; border-bottom: 2px solid #2563eb;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <div style="font-weight: 700; font-size: 13px; color: #1e3a8a; display: flex; align-items: center; gap: 6px;">
+        <span>🌐 Dịch Thuật Đa Ngôn Ngữ</span>
+        <span style="font-size: 10px; background: #dbeafe; color: #1d4ed8; padding: 2px 6px; border-radius: 4px;">Chuẩn Chuyên Ngành</span>
+      </div>
+      <button type="button" id="btnCloseTranslation" class="icon-btn" style="padding: 2px 6px;" title="Đóng bảng">✕</button>
+    </div>
+
+    <!-- Cặp ngôn ngữ -->
+    <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: center; margin-bottom: 10px;">
+      <div>
+        <label for="selSourceLang" style="font-size: 11px; font-weight: 600; margin-bottom: 3px; display: block;">Nguồn:</label>
+        <select id="selSourceLang" class="select-input" style="font-size: 11.5px; padding: 5px;">
+          <option value="zh" selected>🇨🇳 Tiếng Trung</option>
+          <option value="en">🇬🇧 Tiếng Anh</option>
+          <option value="vi">🇻🇳 Tiếng Việt</option>
+          <option value="ko">🇰🇷 Tiếng Hàn</option>
+          <option value="ja">🇯🇵 Tiếng Nhật</option>
+          <option value="auto">🌐 Tự động nhận diện</option>
+        </select>
+      </div>
+      <div style="font-size: 16px; margin-top: 15px; color: #64748b; text-align: center;">➔</div>
+      <div>
+        <label for="selTargetLang" style="font-size: 11px; font-weight: 600; margin-bottom: 3px; display: block;">Đích:</label>
+        <select id="selTargetLang" class="select-input" style="font-size: 11.5px; padding: 5px;">
+          <option value="vi" selected>🇻🇳 Tiếng Việt</option>
+          <option value="en">🇬🇧 Tiếng Anh</option>
+          <option value="zh">🇨🇳 Tiếng Trung</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Chế độ chèn kết quả -->
+    <div class="form-group" style="margin-bottom: 10px;">
+      <label style="font-size: 11px; font-weight: 600; margin-bottom: 4px; display: block;">Chế độ xuất bản dịch:</label>
+      <div style="display: flex; gap: 6px;" id="transModeGroup">
+        <label class="radio-chip active" id="lblModeDual">
+          <input type="radio" name="transMode" id="radModeDual" value="dual" checked style="display: none;" />
+          📖 Song ngữ đối chiếu
+        </label>
+        <label class="radio-chip" id="lblModeReplace">
+          <input type="radio" name="transMode" id="radModeReplace" value="replace" style="display: none;" />
+          🔄 Thay thế bản gốc
+        </label>
+      </div>
+      <small id="transModeHint" style="font-size: 10.5px; color: #64748b; margin-top: 3px; display: block;">
+        Chèn đoạn dịch màu xanh navy ngay dưới đoạn gốc để kiểm tra, đối chiếu hợp đồng/PDF.
+      </small>
+    </div>
+
+    <!-- Quản lý Từ điển thuật ngữ (Glossary Override - Kế thừa my_translating PDF) -->
+    <div class="form-group" style="margin-bottom: 8px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <label for="glossaryInput" style="font-size: 11px; font-weight: 600; margin-bottom: 0;">Từ điển thuật ngữ ép chuẩn (CSV):</label>
+        <div style="display: flex; gap: 4px;">
+          <button type="button" id="btnLoadGarmentGlossary" class="btn-act" style="font-size: 10px; padding: 1px 5px;" title="Nạp từ điển May mặc & XNK mẫu">May mặc/XNK</button>
+          <button type="button" id="btnLoadContractGlossary" class="btn-act" style="font-size: 10px; padding: 1px 5px;" title="Nạp từ điển Hợp đồng & Pháp lý mẫu">Hợp đồng</button>
+        </div>
+      </div>
+      <textarea id="glossaryInput" class="input-text" rows="3" placeholder="từ_gốc,từ_dịch&#10;PO FOB,Đơn hàng FOB&#10;Fabric,Vải&#10;C/O,Chứng nhận xuất xứ CO" style="font-family: Consolas, monospace; font-size: 10.5px;"></textarea>
+      <small style="font-size: 10px; color: #64748b; margin-top: 2px; display: block;">
+        Mỗi dòng 1 cặp: <code>từ gốc, từ dịch</code>. AI bắt buộc tuân thủ 100%, không bịa đặt nghĩa.
+      </small>
+    </div>
+
+    <!-- Nút hành động -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+      <button type="button" id="btnSaveGlossary" class="btn-act" style="font-size: 11px;">💾 Lưu từ điển</button>
+      <div style="display: flex; gap: 6px;">
+        <button type="button" id="btnExecuteTranslate" class="btn-primary" style="background: #2563eb; font-size: 11.5px; padding: 6px 14px;">
+          🚀 Bắt đầu dịch ngay
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Action Chips (Tự thích ứng theo Word hoặc Excel) -->
+  <div id="quickBar" class="quick-bar">
+    <!-- Populated dynamically based on Host -->
+  </div>
+
+  <!-- Feed Area -->
+  <main id="feedArea" class="feed-area">
+    <div id="welcomeCard" class="welcome-card">
+      <div class="welcome-title">✦ Xin chào! Tôi là Trợ lý MinhDuong84vn AI</div>
+      <p class="welcome-desc">
+        Tôi có thể đọc tài liệu đang mở để rà soát lỗi chính tả, dịch thuật song ngữ (Trung - Việt, Anh - Việt) cho hồ sơ văn bản/PDF trên <b>Word</b>, hoặc đề xuất công thức và dịch dữ liệu bảng tính trên <b>Excel</b>.<br /><br />
+        Hãy bấm các nút hành động nhanh ở thanh công cụ phía trên hoặc nhập câu hỏi bên dưới.
+      </p>
+    </div>
+  </main>
+
+  <!-- Input Bar -->
+  <footer class="input-bar">
+    <div class="attach-option">
+      <input type="checkbox" id="chkAttachContext" checked />
+      <label for="chkAttachContext" id="lblAttach">Đính kèm nội dung tài liệu đang chọn</label>
+    </div>
+    <div class="input-row">
+      <textarea id="promptInput" class="chat-input" placeholder="Hỏi AI hoặc yêu cầu xử lý..." rows="1"></textarea>
+      <button id="btnSend" class="send-btn" title="Gửi (Enter)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </footer>
+
+  <div class="status-bar">
+    <span id="statusText">✦ Sẵn sàng</span>
+    <span id="modelInfo">gemini-1.5-flash</span>
+  </div>
+
+  <!-- Scripts -->
+  <script type="module" src="gemini-api.js"></script>
+  <script type="module" src="office-bridge.js"></script>
+  <script type="module" src="taskpane.js"></script>
+</body>
+</html>
