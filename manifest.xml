@@ -10,19 +10,20 @@
   <DefaultLocale>vi-VN</DefaultLocale>
   <DisplayName DefaultValue="Trợ lý AI MinhDuong84vn (Word &amp; Excel)" />
   <Description DefaultValue="Trợ lý AI MinhDuong84vn hỗ trợ dịch thuật đa ngôn ngữ (Trung-Việt, Anh-Việt), rà soát văn bản chuẩn Nghị định 30 trên Word và tự động hóa bảng tính trên Excel." />
-  <IconUrl DefaultValue="https://localhost:3000/assets/icon-32.png" />
-  <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/icon-80.png" />
-  <SupportUrl DefaultValue="https://localhost:3000" />
+  <IconUrl DefaultValue="https://minhduong84vn-office.pages.dev/assets/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://minhduong84vn-office.pages.dev/assets/icon-80.png" />
+  <SupportUrl DefaultValue="https://minhduong84vn-office.pages.dev" />
   <AppDomains>
-    <AppDomain>https://localhost:3000</AppDomain>
+    <AppDomain>https://minhduong84vn-office.pages.dev</AppDomain>
     <AppDomain>https://generativelanguage.googleapis.com</AppDomain>
+    <AppDomain>https://api.deepseek.com</AppDomain>
   </AppDomains>
   <Hosts>
     <Host Name="Document" />
     <Host Name="Workbook" />
   </Hosts>
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://localhost:3000/src/taskpane.html" />
+    <SourceLocation DefaultValue="https://minhduong84vn-office.pages.dev/src/taskpane.html" />
   </DefaultSettings>
   <Permissions>ReadWriteDocument</Permissions>
 
@@ -109,13 +110,13 @@
 
     <Resources>
       <bt:Images>
-        <bt:Image id="Icon.16" DefaultValue="https://localhost:3000/assets/icon-16.png" />
-        <bt:Image id="Icon.32" DefaultValue="https://localhost:3000/assets/icon-32.png" />
-        <bt:Image id="Icon.80" DefaultValue="https://localhost:3000/assets/icon-80.png" />
+        <bt:Image id="Icon.16" DefaultValue="https://minhduong84vn-office.pages.dev/assets/icon-16.png" />
+        <bt:Image id="Icon.32" DefaultValue="https://minhduong84vn-office.pages.dev/assets/icon-32.png" />
+        <bt:Image id="Icon.80" DefaultValue="https://minhduong84vn-office.pages.dev/assets/icon-80.png" />
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://localhost:3000" />
-        <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3000/src/taskpane.html" />
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://minhduong84vn-office.pages.dev" />
+        <bt:Url id="Taskpane.Url" DefaultValue="https://minhduong84vn-office.pages.dev/src/taskpane.html" />
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="GetStarted.Title" DefaultValue="Trợ lý MinhDuong84vn AI sẵn sàng!" />

@@ -15,24 +15,24 @@ export class OfficeBridge {
   }
 
   async initialize() {
-    return new Promise((resolve) => {
-      if (typeof Office === "undefined") {
-        console.warn("Office.js chưa sẵn sàng hoặc đang chạy ngoài Office app.");
-        resolve(false);
-        return;
-      }
+    if (typeof Office === "undefined") {
+      console.warn("Office.js chưa sẵn sàng hoặc đang chạy ngoài Office app.");
+      return false;
+    }
 
-      Office.onReady((info) => {
-        if (info.host) {
-          this.host = info.host === Office.HostType.Word ? "Word" : (info.host === Office.HostType.Excel ? "Excel" : String(info.host));
-          this.isReady = true;
-          console.log(`Office.js đã sẵn sàng trên host: ${this.host}`);
-          resolve(true);
-        } else {
-          resolve(false);
-        }
-      });
-    });
+    try {
+      const info = await Office.onReady();
+      if (info && info.host) {
+        this.host = info.host === Office.HostType.Word ? "Word" : (info.host === Office.HostType.Excel ? "Excel" : String(info.host));
+        this.isReady = true;
+        console.log(`Office.js đã sẵn sàng trên host: ${this.host}`);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.warn("Lỗi khi khởi tạo Office.onReady:", e);
+      return false;
+    }
   }
 
   getHostName() {
