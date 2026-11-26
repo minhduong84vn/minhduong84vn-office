@@ -240,6 +240,8 @@ function renderQuickChips(host) {
     { label: "📊 Viết báo cáo từ bảng", action: "excel_report" }
   ] : [
     { label: "🔤 Chuyển mã Font", action: "word_convert_font" },
+    { label: "🔄 Xoay ngang 1 trang", action: "word_rotate_landscape" },
+    { label: "📑 Quản lý Section", action: "word_manage_sections" },
     { label: "💵 Đổi số thành chữ VND", action: "word_num_to_words" },
     { label: "📅 Chèn ngày tháng", action: "word_insert_admin_date" },
     { label: "📐 Ký hiệu m², m³", action: "word_insert_symbol" },
@@ -499,7 +501,8 @@ async function handleQuickAction(actionCode) {
     "word_insert_admin_date", "word_change_case", "excel_change_case",
     "excel_safe_merge", "excel_extract_unique", "excel_unhide_sheets",
     "excel_sum_by_color", "word_num_to_words", "excel_insert_symbol",
-    "word_insert_symbol"
+    "word_insert_symbol", "word_rotate_landscape", "word_rotate_portrait",
+    "word_manage_sections", "word_insert_section_break"
   ];
 
   if (!gemini.hasApiKey() && !localActions.includes(actionCode)) {
@@ -906,6 +909,132 @@ async function handleQuickAction(actionCode) {
         setStatus(`✓ Đã chèn ${sym}`);
       };
     });
+    return;
+  }
+
+  // 14. Xoay ngang riêng 1 trang trên Word (Tách Section & Landscape)
+  if (actionCode === "word_rotate_landscape") {
+    const bubble = appendMessageBubble("bot", `
+      <b>🔄 XOAY NGANG RIÊNG 1 TRANG (LANDSCAPE) TRÊN WORD</b><br/>
+      <small style="color: #64748b;">(Tính năng chuyên sâu từ Tiện ích văn phòng v3.4 - Chuyên trị trang bảng biểu rộng, sơ đồ, bản vẽ):</small><br/>
+      • Tự động chèn ngắt Section trước và sau trang đang chọn.<br/>
+      • Chỉ xoay ngang (Landscape) riêng trang này, các trang trước và sau vẫn giữ nguyên khổ đứng (Portrait).<br/>
+      • Tự động căn lề chuẩn trang ngang (Trên/Dưới 20mm, Trái 25mm, Phải 20mm).<br/>
+      <div style="margin-top: 8px; display: flex; gap: 6px;">
+        <button type="button" class="btn-primary btn-do-rotate-land" style="padding: 6px 12px; font-size: 11.5px;">
+          ⚡ Xoay ngang riêng trang này 🔄
+        </button>
+        <button type="button" class="btn-act btn-do-rotate-port" style="padding: 6px 10px; font-size: 11.5px;">
+          ↕️ Xoay lại khổ đứng
+        </button>
+      </div>
+    `);
+
+    const btnLand = bubble.querySelector(".btn-do-rotate-land");
+    const btnPort = bubble.querySelector(".btn-do-rotate-port");
+
+    btnLand.onclick = async () => {
+      btnLand.disabled = true;
+      btnLand.textContent = "⏳ Đang tách Section & xoay ngang...";
+      setStatus("⏳ Đang xoay ngang trang...");
+      try {
+        const res = await bridge.rotateSelectionToLandscape();
+        if (res.success) {
+          btnLand.textContent = "✓ Đã xoay ngang thành công!";
+          appendMessageBubble("bot", `✅ <b>Đã xoay ngang trang thành công!</b><br/>• Hiện tài liệu có tổng cộng <b>${res.totalSections} Section</b>.<br/>• Riêng trang chứa con trỏ/bảng biểu đã được đổi sang khổ ngang (Landscape) và căn lề chuẩn.`);
+          setStatus("✓ Đã xoay ngang 1 trang");
+        } else {
+          btnLand.disabled = false;
+          btnLand.textContent = "⚡ Thử lại";
+          appendMessageBubble("bot", `⚠️ ${res.message}`);
+          setStatus("✦ Hướng dẫn");
+        }
+      } catch (err) {
+        btnLand.disabled = false;
+        btnLand.textContent = "⚡ Thử lại";
+        appendMessageBubble("bot", `❌ Lỗi: ${err.message}`);
+        setStatus("❌ Lỗi xoay trang");
+      }
+    };
+
+    btnPort.onclick = async () => {
+      btnPort.disabled = true;
+      btnPort.textContent = "⏳ Đang chuyển khổ đứng...";
+      setStatus("⏳ Đang chuyển khổ đứng...");
+      try {
+        const res = await bridge.rotateSelectionToPortrait();
+        if (res.success) {
+          btnPort.textContent = "✓ Đã chuyển khổ đứng!";
+          appendMessageBubble("bot", `✅ <b>Đã chuyển trang về khổ đứng (Portrait) thành công!</b>`);
+          setStatus("✓ Khổ đứng");
+        } else {
+          btnPort.disabled = false;
+          btnPort.textContent = "↕️ Thử lại";
+          appendMessageBubble("bot", `⚠️ ${res.message}`);
+          setStatus("✦ Hướng dẫn");
+        }
+      } catch (err) {
+        btnPort.disabled = false;
+        btnPort.textContent = "↕️ Thử lại";
+        appendMessageBubble("bot", `❌ Lỗi: ${err.message}`);
+        setStatus("❌ Lỗi");
+      }
+    };
+    return;
+  }
+
+  // 15. Quản lý Section Word
+  if (actionCode === "word_manage_sections") {
+    setStatus("⏳ Đang quét thông tin Section trong tài liệu...");
+    try {
+      const res = await bridge.getWordSectionsInfo();
+      if (res.success) {
+        let secListHtml = `<div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px;">`;
+        res.sections.forEach(s => {
+          const icon = s.isLandscape ? "🔄" : "↕️";
+          secListHtml += `<div style="background:#f8fafc; padding:4px 8px; border-radius:4px; border:1px solid #e2e8f0; font-size:11.5px;">${icon} <b>Section ${s.index}:</b> ${s.orientation}</div>`;
+        });
+        secListHtml += `</div>`;
+
+        const bubble = appendMessageBubble("bot", `
+          <b>📑 BẢNG ĐIỀU KHIỂN QUẢN LÝ SECTION WORD</b><br/>
+          <small style="color: #64748b;">(Quản lý cấu trúc phân đoạn, hướng giấy và ngắt trang nâng cao):</small><br/>
+          • Tổng số Section trong tài liệu: <b>${res.totalSections} Section</b><br/>
+          ${secListHtml}
+          <div style="margin-top: 8px; display: flex; gap: 5px; flex-wrap: wrap;">
+            <button class="btn-act btn-add-sec-next" style="font-size:11px; padding:4px 8px;">➕ Chèn ngắt Section (Next Page)</button>
+            <button class="btn-act btn-add-sec-cont" style="font-size:11px; padding:4px 8px;">➕ Chèn ngắt Section (Continuous)</button>
+            <button class="btn-primary btn-quick-rotate" style="font-size:11px; padding:4px 8px;">🔄 Xoay ngang riêng trang này</button>
+          </div>
+        `);
+
+        bubble.querySelector(".btn-add-sec-next")?.addEventListener("click", async () => {
+          setStatus("⏳ Đang chèn ngắt Section...");
+          const r = await bridge.insertWordSectionBreak("SectionNext");
+          appendMessageBubble("bot", `✅ <b>Đã chèn dấu ngắt Section sang trang mới (Next Page)!</b> Hiện tài liệu có <b>${r.totalSections} Section</b>.`);
+          setStatus("✓ Đã ngắt Section");
+        });
+
+        bubble.querySelector(".btn-add-sec-cont")?.addEventListener("click", async () => {
+          setStatus("⏳ Đang chèn ngắt Section liên tục...");
+          const r = await bridge.insertWordSectionBreak("SectionContinuous");
+          appendMessageBubble("bot", `✅ <b>Đã chèn dấu ngắt Section liên tục (Continuous)!</b> Hiện tài liệu có <b>${r.totalSections} Section</b>.`);
+          setStatus("✓ Đã ngắt Section");
+        });
+
+        bubble.querySelector(".btn-quick-rotate")?.addEventListener("click", async () => {
+          handleQuickAction("word_rotate_landscape");
+        });
+
+        setStatus("✓ Đã quét Section");
+      } else {
+        appendMessageBubble("bot", `⚠️ ${res.message}`);
+        setStatus("✦ Hướng dẫn");
+      }
+    } catch (err) {
+      appendMessageBubble("bot", `❌ Lỗi: ${err.message}`);
+      setStatus("❌ Lỗi quản lý section");
+    }
     return;
   }
 

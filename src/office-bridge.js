@@ -168,6 +168,176 @@ export class OfficeBridge {
     });
   }
 
+  /**
+   * Xoay ngang riêng vùng chọn hoặc trang hiện tại (tạo Section độc lập và đổi hướng giấy sang Landscape)
+   */
+  async rotateSelectionToLandscape() {
+    if (this.host !== "Word") return { success: false, message: "Chức năng chỉ hỗ trợ trên Microsoft Word" };
+
+    return await Word.run(async (context) => {
+      const selection = context.document.getSelection();
+      selection.load(["text", "isEmpty"]);
+      await context.sync();
+
+      // Chèn ngắt Section sang trang mới trước và sau vùng chọn để cô lập trang
+      selection.insertBreak(Word.BreakType.sectionNext, Word.InsertLocation.before);
+      selection.insertBreak(Word.BreakType.sectionNext, Word.InsertLocation.after);
+      await context.sync();
+
+      const sections = context.document.sections;
+      sections.load(["items"]);
+      await context.sync();
+
+      for (const sec of sections.items) {
+        sec.load("body");
+      }
+      await context.sync();
+
+      let targetSec = null;
+      const selText = selection.text ? selection.text.trim() : "";
+      if (selText) {
+        for (const sec of sections.items) {
+          sec.body.load("text");
+        }
+        await context.sync();
+        for (const sec of sections.items) {
+          if (sec.body.text && sec.body.text.includes(selText)) {
+            targetSec = sec;
+            break;
+          }
+        }
+      }
+
+      if (!targetSec && sections.items.length >= 2) {
+        targetSec = sections.items[sections.items.length - 2];
+      } else if (!targetSec) {
+        targetSec = sections.items[0];
+      }
+
+      targetSec.pageSetup.orientation = "Landscape";
+      // Chuẩn hóa lề trang ngang (Top 20mm, Bottom 20mm, Left 25mm, Right 20mm in points)
+      targetSec.pageSetup.topMargin = 57; // ~20mm
+      targetSec.pageSetup.bottomMargin = 57; // ~20mm
+      targetSec.pageSetup.leftMargin = 71; // ~25mm
+      targetSec.pageSetup.rightMargin = 57; // ~20mm
+      await context.sync();
+
+      return {
+        success: true,
+        totalSections: sections.items.length,
+        message: "Đã tách Section và xoay ngang (Landscape) thành công cho trang này!"
+      };
+    });
+  }
+
+  /**
+   * Đổi hướng trang về khổ đứng (Portrait)
+   */
+  async rotateSelectionToPortrait() {
+    if (this.host !== "Word") return { success: false, message: "Chức năng chỉ hỗ trợ trên Microsoft Word" };
+
+    return await Word.run(async (context) => {
+      const selection = context.document.getSelection();
+      selection.load(["text"]);
+      await context.sync();
+
+      const sections = context.document.sections;
+      sections.load(["items"]);
+      await context.sync();
+
+      for (const sec of sections.items) {
+        sec.load("body");
+      }
+      await context.sync();
+
+      let targetSec = null;
+      const selText = selection.text ? selection.text.trim() : "";
+      if (selText) {
+        for (const sec of sections.items) {
+          sec.body.load("text");
+        }
+        await context.sync();
+        for (const sec of sections.items) {
+          if (sec.body.text && sec.body.text.includes(selText)) {
+            targetSec = sec;
+            break;
+          }
+        }
+      }
+
+      if (!targetSec && sections.items.length > 0) {
+        targetSec = sections.items[sections.items.length - 1];
+      }
+
+      if (targetSec) {
+        targetSec.pageSetup.orientation = "Portrait";
+        // Căn lề chuẩn NĐ 30: Top 20mm, Bottom 20mm, Left 30mm, Right 15mm
+        targetSec.pageSetup.topMargin = 57;
+        targetSec.pageSetup.bottomMargin = 57;
+        targetSec.pageSetup.leftMargin = 85;
+        targetSec.pageSetup.rightMargin = 43;
+        await context.sync();
+        return { success: true, message: "Đã chuyển lại hướng giấy đứng (Portrait) thành công!" };
+      }
+
+      return { success: false, message: "Không tìm thấy Section phù hợp." };
+    });
+  }
+
+  /**
+   * Quét và lấy thông tin thống kê danh sách tất cả các Section trong Word
+   */
+  async getWordSectionsInfo() {
+    if (this.host !== "Word") return { success: false, message: "Chức năng chỉ hỗ trợ trên Microsoft Word" };
+
+    return await Word.run(async (context) => {
+      const sections = context.document.sections;
+      sections.load(["items"]);
+      await context.sync();
+
+      for (const sec of sections.items) {
+        sec.pageSetup.load(["orientation", "topMargin", "bottomMargin", "leftMargin", "rightMargin"]);
+      }
+      await context.sync();
+
+      const list = sections.items.map((sec, idx) => {
+        const orient = String(sec.pageSetup.orientation || "Portrait");
+        const isLandscape = orient.toLowerCase().includes("landscape");
+        return {
+          index: idx + 1,
+          orientation: isLandscape ? "Khổ ngang (Landscape)" : "Khổ đứng (Portrait)",
+          isLandscape
+        };
+      });
+
+      return { success: true, totalSections: sections.items.length, sections: list };
+    });
+  }
+
+  /**
+   * Chèn dấu ngắt Section tùy chọn tại vị trí con trỏ (Next Page hoặc Continuous)
+   */
+  async insertWordSectionBreak(breakType = "SectionNext") {
+    if (this.host !== "Word") return { success: false, message: "Chức năng chỉ hỗ trợ trên Microsoft Word" };
+
+    return await Word.run(async (context) => {
+      const selection = context.document.getSelection();
+      const bType = breakType === "SectionContinuous" ? Word.BreakType.sectionContinuous : Word.BreakType.sectionNext;
+      selection.insertBreak(bType, Word.InsertLocation.after);
+      await context.sync();
+
+      const sections = context.document.sections;
+      sections.load("items");
+      await context.sync();
+
+      return {
+        success: true,
+        breakType,
+        totalSections: sections.items.length
+      };
+    });
+  }
+
   // ==========================================
   // CÁC HÀM XỬ LÝ TRÊN MICROSOFT EXCEL
   // ==========================================

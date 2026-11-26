@@ -59,6 +59,9 @@ Add-in hoạt động trực tiếp trong thanh tác vụ (Taskpane) của **Mic
   * Phát hiện toàn bộ các ô bị lỗi `#REF!`, `#DIV/0!`, `#VALUE!`, `#N/A`.
 
 #### 3. Tiện ích thực chiến trên Microsoft Word:
+* **🔄 Xoay ngang riêng 1 trang (Landscape) & Quản lý Section:**
+  * Tự động tách Section và xoay ngang riêng một trang bảng biểu rộng, sơ đồ, bản vẽ kỹ thuật ở giữa tài liệu Word mà không làm xoay các trang chữ đứng khác. Tự động căn lại lề chuẩn trang ngang (Trên/Dưới 20mm, Trái 25mm, Phải 20mm).
+  * Quản lý cấu trúc Section trong Word: Xem danh sách hướng giấy từng Section, chèn ngắt Section sang trang mới (Next Page) hoặc ngắt liên tục (Continuous).
 * **📅 Chèn địa danh ngày tháng chuẩn hành chính (Nghị định 30):**
   * Bấm chọn nhanh địa danh (*Hà Nội, TP. Hồ Chí Minh, Đà Nẵng, Hải Phòng, Cần Thơ* hoặc gõ tỉnh/thành bất kỳ) để chèn dòng ngày tháng chuẩn thể thức: *in nghiêng, căn phải, font Times New Roman 13pt*.
 * **💵 Đổi số thành chữ VND trực tiếp trên Word:**
