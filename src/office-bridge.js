@@ -1,5 +1,12 @@
 // src/office-bridge.js
 // Cầu nối giao tiếp hai chiều với Microsoft Word và Microsoft Excel thông qua Office.js
+import {
+  convertFontToUnicode,
+  splitVietnameseName,
+  compareVietnameseNames,
+  changeCase,
+  getAdminDateString
+} from "./vietnamese-tools.js";
 
 export class OfficeBridge {
   constructor() {
@@ -828,6 +835,254 @@ export class OfficeBridge {
         address: selection.address,
         mode
       };
+    });
+  }
+
+  // ==========================================
+  // TIỆN ÍCH TIẾNG VIỆT THỰC CHIẾN (KẾ THỪA V3.4)
+  // ==========================================
+
+  /**
+   * Chuyển mã font lỗi (TCVN3, VNI) sang Unicode chuẩn
+   * Áp dụng cho cả Word và Excel
+   */
+  async convertSelectionFont(sourceEncoding = "auto") {
+    if (this.host === "Word") {
+      return await Word.run(async (context) => {
+        const selection = context.document.getSelection();
+        selection.load("text");
+        await context.sync();
+
+        let target = selection;
+        let text = selection.text;
+        if (!text || text.trim().length === 0) {
+          const body = context.document.body;
+          body.load("text");
+          await context.sync();
+          target = body;
+          text = body.text;
+        }
+
+        if (!text || text.trim().length === 0) {
+          return { success: false, message: "Không tìm thấy văn bản để chuyển mã font." };
+        }
+
+        const converted = convertFontToUnicode(text, sourceEncoding);
+        target.insertText(converted, Word.InsertLocation.replace);
+        target.font.name = "Times New Roman";
+        await context.sync();
+
+        return { success: true, count: text.length };
+      });
+    } else if (this.host === "Excel") {
+      return await Excel.run(async (context) => {
+        const selection = context.workbook.getSelectedRange();
+        selection.load(["rowCount", "columnCount", "values"]);
+        await context.sync();
+
+        if (selection.rowCount === 0 || selection.columnCount === 0) {
+          return { success: false, message: "Chưa chọn vùng dữ liệu nào trên Excel." };
+        }
+
+        let convertedCount = 0;
+        const newValues = selection.values.map(row => {
+          return row.map(cell => {
+            if (typeof cell === "string" && cell.length > 0) {
+              const res = convertFontToUnicode(cell, sourceEncoding);
+              if (res !== cell) convertedCount++;
+              return res;
+            }
+            return cell;
+          });
+        });
+
+        selection.values = newValues;
+        selection.format.font.name = "Times New Roman";
+        await context.sync();
+
+        return { success: true, count: convertedCount };
+      });
+    }
+  }
+
+  /**
+   * Đổi kiểu chữ (Hoa, Thường, Viết Hoa Đầu Từ, Viết hoa đầu câu)
+   */
+  async changeSelectionCase(caseType = "title") {
+    if (this.host === "Word") {
+      return await Word.run(async (context) => {
+        const selection = context.document.getSelection();
+        selection.load("text");
+        await context.sync();
+
+        if (!selection.text || selection.text.trim().length === 0) {
+          return { success: false, message: "Vui lòng bôi đen đoạn văn bản cần đổi kiểu chữ." };
+        }
+
+        const changed = changeCase(selection.text, caseType);
+        selection.insertText(changed, Word.InsertLocation.replace);
+        await context.sync();
+        return { success: true, text: changed };
+      });
+    } else if (this.host === "Excel") {
+      return await Excel.run(async (context) => {
+        const selection = context.workbook.getSelectedRange();
+        selection.load(["rowCount", "columnCount", "values"]);
+        await context.sync();
+
+        let modified = 0;
+        const newValues = selection.values.map(row => {
+          return row.map(cell => {
+            if (typeof cell === "string" && cell.length > 0) {
+              modified++;
+              return changeCase(cell, caseType);
+            }
+            return cell;
+          });
+        });
+
+        selection.values = newValues;
+        await context.sync();
+        return { success: true, count: modified };
+      });
+    }
+  }
+
+  /**
+   * Chèn câu địa danh ngày tháng hành chính chuẩn Nghị định 30 (Word)
+   */
+  async insertAdminDateWord(location = "Hà Nội") {
+    if (this.host !== "Word") return { success: false, message: "Chức năng chỉ hỗ trợ trên Word" };
+
+    return await Word.run(async (context) => {
+      const dateStr = getAdminDateString(location);
+      const selection = context.document.getSelection();
+      const para = selection.insertParagraph(dateStr, Word.InsertLocation.after);
+      para.font.name = "Times New Roman";
+      para.font.size = 13;
+      para.font.italic = true;
+      para.alignment = Word.Alignment.right;
+      await context.sync();
+      return { success: true, text: dateStr };
+    });
+  }
+
+  /**
+   * Sắp xếp danh sách tiếng Việt chuẩn A-Z (theo Tên trước, Họ đệm sau) trên Excel
+   */
+  async sortVietnameseColumnExcel() {
+    if (this.host !== "Excel") return { success: false, message: "Chức năng chỉ hỗ trợ trên Excel" };
+
+    return await Excel.run(async (context) => {
+      const selection = context.workbook.getSelectedRange();
+      selection.load(["rowCount", "columnCount", "values"]);
+      await context.sync();
+
+      if (selection.rowCount <= 1) {
+        return { success: false, message: "Vui lòng chọn vùng bảng hoặc cột họ tên có từ 2 hàng trở lên." };
+      }
+
+      const rows = selection.values;
+      const sortedRows = [...rows].sort((rowA, rowB) => {
+        const nameA = String(rowA[0] || "");
+        const nameB = String(rowB[0] || "");
+        return compareVietnameseNames(nameA, nameB);
+      });
+
+      selection.values = sortedRows;
+      await context.sync();
+      return { success: true, rowCount: rows.length };
+    });
+  }
+
+  /**
+   * Quét và dọn sạch các Name rác, Name bị lỗi #REF!, Name ẩn trên Excel
+   */
+  async cleanExcelNames() {
+    if (this.host !== "Excel") return { success: false, message: "Chức năng chỉ hỗ trợ trên Excel" };
+
+    return await Excel.run(async (context) => {
+      const names = context.workbook.names;
+      names.load(["items", "name", "value", "visible"]);
+      await context.sync();
+
+      let deletedCount = 0;
+      const total = names.items.length;
+
+      for (let i = names.items.length - 1; i >= 0; i--) {
+        const item = names.items[i];
+        const val = String(item.value || "");
+        if (val.includes("#REF!") || !item.visible) {
+          item.delete();
+          deletedCount++;
+        }
+      }
+
+      await context.sync();
+      return {
+        success: true,
+        total,
+        deleted: deletedCount,
+        remaining: total - deletedCount
+      };
+    });
+  }
+
+  /**
+   * Xóa tất cả các hàng trắng (hàng không có dữ liệu) trong vùng chọn hoặc bảng tính
+   */
+  async deleteEmptyRowsExcel() {
+    if (this.host !== "Excel") return { success: false, message: "Chức năng chỉ hỗ trợ trên Excel" };
+
+    return await Excel.run(async (context) => {
+      const sheet = context.workbook.worksheets.getActiveWorksheet();
+      const selection = context.workbook.getSelectedRange();
+      selection.load(["rowCount", "columnCount", "values", "rowIndex", "columnIndex"]);
+      await context.sync();
+
+      const isSingleCell = selection.rowCount === 1 && selection.columnCount === 1;
+      const targetRange = isSingleCell ? sheet.getUsedRange() : selection;
+      targetRange.load(["rowCount", "columnCount", "values", "rowIndex", "columnIndex"]);
+      await context.sync();
+
+      const rows = targetRange.values;
+      let deleted = 0;
+
+      for (let r = rows.length - 1; r >= 0; r--) {
+        const isRowEmpty = rows[r].every(c => c === null || c === undefined || String(c).trim() === "");
+        if (isRowEmpty) {
+          const actualRowIdx = targetRange.rowIndex + r;
+          const rowRange = sheet.getRangeByIndexes(actualRowIdx, targetRange.columnIndex, 1, targetRange.columnCount);
+          rowRange.delete(Excel.DeleteShiftDirection.up);
+          deleted++;
+        }
+      }
+
+      await context.sync();
+      return { success: true, deletedCount: deleted };
+    });
+  }
+
+  /**
+   * Tô màu xen kẽ các hàng (Zebra Striping)
+   */
+  async applyZebraStripingExcel(evenColor = "#F1F5F9", oddColor = "#FFFFFF") {
+    if (this.host !== "Excel") return { success: false, message: "Chức năng chỉ hỗ trợ trên Excel" };
+
+    return await Excel.run(async (context) => {
+      const selection = context.workbook.getSelectedRange();
+      selection.load(["rowCount", "columnCount", "rowIndex", "columnIndex"]);
+      await context.sync();
+
+      const sheet = context.workbook.worksheets.getActiveWorksheet();
+      for (let r = 0; r < selection.rowCount; r++) {
+        const actualRowIdx = selection.rowIndex + r;
+        const rowRange = sheet.getRangeByIndexes(actualRowIdx, selection.columnIndex, 1, selection.columnCount);
+        rowRange.format.fill.color = r % 2 === 0 ? oddColor : evenColor;
+      }
+
+      await context.sync();
+      return { success: true, rowCount: selection.rowCount };
     });
   }
 }

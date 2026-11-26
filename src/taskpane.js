@@ -218,6 +218,12 @@ function renderQuickChips(host) {
   quickBar.innerHTML = "";
 
   const chips = host === "Excel" ? [
+    { label: "🔤 Chuyển mã Font", action: "excel_convert_font" },
+    { label: "🔤 Sắp xếp A-Z (Tên)", action: "excel_sort_vietnamese" },
+    { label: "🧹 Xóa Name rác #REF", action: "excel_clean_names" },
+    { label: "🎨 Tô màu xen kẽ", action: "excel_zebra" },
+    { label: "🗑️ Xóa hàng trắng", action: "excel_delete_empty_rows" },
+    { label: "🔠 Đổi HOA/thường", action: "excel_change_case" },
     { label: "🌐 Dịch cột dữ liệu", action: "excel_translate" },
     { label: "ƒx Gợi ý công thức", action: "excel_formula" },
     { label: "📐 Chuẩn hóa bảng KCS/QS", action: "excel_format_kcs_qs" },
@@ -228,12 +234,15 @@ function renderQuickChips(host) {
     { label: "🔎 Quét ô lỗi công thức", action: "excel_scan_errors" },
     { label: "📊 Viết báo cáo từ bảng", action: "excel_report" }
   ] : [
+    { label: "🔤 Chuyển mã Font", action: "word_convert_font" },
+    { label: "📅 Chèn ngày tháng", action: "word_insert_admin_date" },
+    { label: "🔠 Đổi HOA/thường", action: "word_change_case" },
+    { label: "📐 Căn lề chuẩn NĐ 30", action: "word_format_nd30" },
+    { label: "📑 Mẫu văn bản NĐ 30", action: "word_templates" },
     { label: "🌐 Dịch thuật / Song ngữ", action: "word_translate" },
     { label: "🔴 Soát lỗi & Bôi màu", action: "word_review" },
     { label: "✍️ Viết lại trang trọng", action: "word_rewrite" },
-    { label: "💡 Tóm tắt văn bản", action: "word_summarize" },
-    { label: "📐 Căn lề chuẩn NĐ 30", action: "word_format_nd30" },
-    { label: "📑 Mẫu văn bản NĐ 30", action: "word_templates" }
+    { label: "💡 Tóm tắt văn bản", action: "word_summarize" }
   ];
 
   chips.forEach(c => {
@@ -475,13 +484,245 @@ async function handleUserSend() {
 
 // Xử lý các nút bấm hành động nhanh
 async function handleQuickAction(actionCode) {
-  if (!gemini.hasApiKey() && actionCode !== "word_format_nd30" && actionCode !== "excel_subtotal" && actionCode !== "excel_split_name" && actionCode !== "excel_num_to_words" && actionCode !== "excel_clean_text" && actionCode !== "excel_scan_errors" && actionCode !== "word_templates") {
+  const localActions = [
+    "word_format_nd30", "excel_subtotal", "excel_split_name", "excel_num_to_words",
+    "excel_clean_text", "excel_scan_errors", "word_templates",
+    "excel_convert_font", "word_convert_font", "excel_sort_vietnamese",
+    "excel_clean_names", "excel_delete_empty_rows", "excel_zebra",
+    "word_insert_admin_date", "word_change_case", "excel_change_case"
+  ];
+
+  if (!gemini.hasApiKey() && !localActions.includes(actionCode)) {
     openSettings();
     appendMessageBubble("bot", "⚠️ Vui lòng cấu hình API Key trong bảng cài đặt phía trên trước khi sử dụng tính năng AI.");
     return;
   }
 
   const host = bridge.getHostName();
+
+  // ==========================================
+  // TIỆN ÍCH VĂN PHÒNG VIỆT NAM (KẾ THỪA V3.4 - CHẠY OFFLINE 100%)
+  // ==========================================
+
+  // 1. Chuyển đổi mã font (TCVN3, VNI ➔ Unicode chuẩn)
+  if (actionCode === "excel_convert_font" || actionCode === "word_convert_font") {
+    const isWord = actionCode === "word_convert_font";
+    const bubble = appendMessageBubble("bot", `
+      <b>🔤 CHUYỂN ĐỔI MÃ FONT TIẾNG VIỆT TOÀN DIỆN</b><br/>
+      <small style="color: #64748b;">(Tích hợp từ Tiện ích văn phòng v3.4 - Khắc phục triệt để lỗi gõ font cũ)</small><br/>
+      • Nhận diện hoặc ép mã nguồn: <b>TCVN3 (.VnTime, .VnArial)</b>, <b>VNI-Windows (VNI-Times)</b>.<br/>
+      • Đích chuyển đổi: <b>Unicode dựng sẵn (Times New Roman)</b>.<br/>
+      <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <label style="font-size: 11px; font-weight: 600;">Mã nguồn:</label>
+          <select class="select-input font-src-select" style="font-size: 11px; padding: 3px 6px; flex: 1;">
+            <option value="auto">🌐 Tự động nhận diện (Khuyên dùng)</option>
+            <option value="tcvn3">TCVN3 / ABC (.VnTime, .VnArial...)</option>
+            <option value="vni">VNI-Windows (VNI-Times...)</option>
+          </select>
+        </div>
+        <button type="button" class="btn-primary btn-do-convert-font" style="padding: 6px 12px; font-size: 12px;">
+          ⚡ Bắt đầu chuyển mã ${isWord ? 'vùng chọn (hoặc toàn tài liệu)' : 'vùng ô đang chọn'}
+        </button>
+      </div>
+    `);
+
+    const sel = bubble.querySelector(".font-src-select");
+    const btn = bubble.querySelector(".btn-do-convert-font");
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.textContent = "⏳ Đang chuyển đổi mã font...";
+      setStatus("⏳ Đang chuyển đổi mã font...");
+      try {
+        const sourceEncoding = sel.value;
+        const res = await bridge.convertSelectionFont(sourceEncoding);
+        if (res.success) {
+          const targetName = isWord ? `${res.count} ký tự` : `${res.count} ô`;
+          btn.textContent = `✓ Đã chuyển đổi thành công ${targetName}!`;
+          setStatus(`✓ Đã đổi ${targetName} sang Unicode`);
+          appendMessageBubble("bot", `✅ <b>Chuyển mã thành công!</b> Đã xử lý ${targetName} sang Unicode dựng sẵn (Font Times New Roman).`);
+        } else {
+          btn.disabled = false;
+          btn.textContent = "⚡ Thử lại";
+          appendMessageBubble("bot", `⚠️ ${res.message || "Không thể chuyển mã."}`);
+          setStatus("✦ Hướng dẫn");
+        }
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = "⚡ Thử lại";
+        appendMessageBubble("bot", `❌ Lỗi: ${err.message}`);
+        setStatus("❌ Lỗi chuyển font");
+      }
+    };
+    return;
+  }
+
+  // 2. Sắp xếp danh sách tiếng Việt chuẩn A-Z (Tên trước, Họ sau) trên Excel
+  if (actionCode === "excel_sort_vietnamese") {
+    setStatus("⏳ Đang sắp xếp danh sách tiếng Việt...");
+    try {
+      const res = await bridge.sortVietnameseColumnExcel();
+      if (res.success) {
+        appendMessageBubble("bot", `✅ <b>Đã sắp xếp danh sách tiếng Việt A-Z thành công cho ${res.rowCount} hàng!</b><br/><small style="color: #64748b;">(Tên đứng trước để xếp theo vần A-Z, Họ đệm xét thứ hai - Chuẩn bảng điểm & danh sách nhân sự Việt Nam).</small>`);
+        setStatus(`✓ Đã xếp ${res.rowCount} hàng A-Z`);
+      } else {
+        appendMessageBubble("bot", `⚠️ ${res.message}`);
+        setStatus("✦ Hướng dẫn");
+      }
+    } catch (err) {
+      appendMessageBubble("bot", `❌ Lỗi: ${err.message}`);
+      setStatus("❌ Lỗi sắp xếp");
+    }
+    return;
+  }
+
+  // 3. Quét & dọn sạch Defined Names rác, Name lỗi #REF! trên Excel
+  if (actionCode === "excel_clean_names") {
+    setStatus("⏳ Đang quét và dọn sạch Defined Names rác...");
+    try {
+      const res = await bridge.cleanExcelNames();
+      if (res.success) {
+        appendMessageBubble("bot", `🧹 <b>Đã dọn dẹp Defined Names rác trên Workbook!</b><br/>• Tổng số Name: <b>${res.total}</b><br/>• Đã xóa Name rác / lỗi #REF! / Name ẩn: <b style="color: #b91c1c;">${res.deleted}</b><br/>• Name hợp lệ còn lại: <b style="color: #15803d;">${res.remaining}</b><br/><small style="color: #64748b;">Giúp file Excel nhẹ hơn và không còn cảnh báo lỗi liên kết Name khi mở file.</small>`);
+        setStatus(`✓ Đã dọn ${res.deleted} name rác`);
+      } else {
+        appendMessageBubble("bot", `⚠️ ${res.message}`);
+        setStatus("✦ Hướng dẫn");
+      }
+    } catch (err) {
+      appendMessageBubble("bot", `❌ Lỗi: ${err.message}`);
+      setStatus("❌ Lỗi dọn name");
+    }
+    return;
+  }
+
+  // 4. Xóa hàng trắng không có dữ liệu trên Excel
+  if (actionCode === "excel_delete_empty_rows") {
+    setStatus("⏳ Đang tìm và xóa các hàng trắng...");
+    try {
+      const res = await bridge.deleteEmptyRowsExcel();
+      if (res.success) {
+        appendMessageBubble("bot", `🗑️ <b>Đã xóa thành công ${res.deletedCount} hàng trắng!</b><br/><small style="color: #64748b;">Bảng tính đã được co gọn lại, loại bỏ các khoảng trống thừa.</small>`);
+        setStatus(`✓ Đã xóa ${res.deletedCount} hàng trắng`);
+      } else {
+        appendMessageBubble("bot", `⚠️ ${res.message}`);
+        setStatus("✦ Hướng dẫn");
+      }
+    } catch (err) {
+      appendMessageBubble("bot", `❌ Lỗi: ${err.message}`);
+      setStatus("❌ Lỗi xóa hàng");
+    }
+    return;
+  }
+
+  // 5. Tô màu xen kẽ các hàng (Zebra Striping) trên Excel
+  if (actionCode === "excel_zebra") {
+    setStatus("⏳ Đang tô màu xen kẽ các hàng...");
+    try {
+      const res = await bridge.applyZebraStripingExcel("#F8FAFC", "#FFFFFF");
+      if (res.success) {
+        appendMessageBubble("bot", `🎨 <b>Đã tô màu xen kẽ (Zebra Striping) thành công cho ${res.rowCount} hàng!</b><br/><small style="color: #64748b;">Bảng tính trông chuyên nghiệp và dễ dò dòng dữ liệu hơn.</small>`);
+        setStatus(`✓ Đã tô màu ${res.rowCount} hàng`);
+      } else {
+        appendMessageBubble("bot", `⚠️ ${res.message}`);
+        setStatus("✦ Hướng dẫn");
+      }
+    } catch (err) {
+      appendMessageBubble("bot", `❌ Lỗi: ${err.message}`);
+      setStatus("❌ Lỗi tô màu");
+    }
+    return;
+  }
+
+  // 6. Chèn câu địa danh ngày tháng hành chính trên Word
+  if (actionCode === "word_insert_admin_date") {
+    const bubble = appendMessageBubble("bot", `
+      <b>📅 CHÈN ĐỊA DANH NGÀY THÁNG CHUẨN NGHỊ ĐỊNH 30</b><br/>
+      <small style="color: #64748b;">Chèn câu ngày tháng thể thức văn bản hành chính Việt Nam (in nghiêng, căn phải, Times New Roman 13pt):</small>
+      <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+          <button class="btn-act date-loc-btn" data-loc="Hà Nội">Hà Nội</button>
+          <button class="btn-act date-loc-btn" data-loc="TP. Hồ Chí Minh">TP. Hồ Chí Minh</button>
+          <button class="btn-act date-loc-btn" data-loc="Đà Nẵng">Đà Nẵng</button>
+          <button class="btn-act date-loc-btn" data-loc="Hải Phòng">Hải Phòng</button>
+          <button class="btn-act date-loc-btn" data-loc="Cần Thơ">Cần Thơ</button>
+        </div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <input type="text" class="input-text custom-loc-input" placeholder="Hoặc gõ Tỉnh/Thành khác..." style="font-size: 11px;" value="Hà Nội" />
+          <button type="button" class="btn-primary btn-do-insert-date" style="padding: 4px 10px; font-size: 11px; white-space: nowrap;">Chèn ngay ✍️</button>
+        </div>
+      </div>
+    `);
+
+    const locInp = bubble.querySelector(".custom-loc-input");
+    const insertBtn = bubble.querySelector(".btn-do-insert-date");
+
+    bubble.querySelectorAll(".date-loc-btn").forEach(b => {
+      b.onclick = () => {
+        if (locInp) locInp.value = b.getAttribute("data-loc");
+        insertBtn.click();
+      };
+    });
+
+    insertBtn.onclick = async () => {
+      const loc = locInp.value.trim() || "Hà Nội";
+      insertBtn.disabled = true;
+      insertBtn.textContent = "⏳ Đang chèn...";
+      setStatus("⏳ Đang chèn địa danh ngày tháng...");
+      try {
+        const res = await bridge.insertAdminDateWord(loc);
+        if (res.success) {
+          appendMessageBubble("bot", `✅ <b>Đã chèn thành công:</b> <i>"${res.text}"</i>`);
+          setStatus("✓ Đã chèn ngày tháng");
+        } else {
+          appendMessageBubble("bot", `⚠️ ${res.message}`);
+          setStatus("✦ Hướng dẫn");
+        }
+      } catch (err) {
+        appendMessageBubble("bot", `❌ Lỗi: ${err.message}`);
+        setStatus("❌ Lỗi");
+      }
+    };
+    return;
+  }
+
+  // 7. Chuyển đổi kiểu chữ (Hoa / Thường / Tiêu đề / Đầu câu) cho Word & Excel
+  if (actionCode === "word_change_case" || actionCode === "excel_change_case") {
+    const isWord = actionCode === "word_change_case";
+    const bubble = appendMessageBubble("bot", `
+      <b>🔠 CHUYỂN ĐỔI KIỂU CHỮ (HOA / THƯỜNG / TIÊU ĐỀ)</b><br/>
+      <small style="color: #64748b;">(Tương tự tiện ích Change Case v3.4 - Hỗ trợ đầy đủ tiếng Việt có dấu):</small>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px;">
+        <button class="btn-act apply case-btn" data-case="upper" style="padding: 6px 8px; text-align: center;">🔠 CHỮ HOA TOÀN BỘ</button>
+        <button class="btn-act apply case-btn" data-case="lower" style="padding: 6px 8px; text-align: center;">🔡 chữ thường toàn bộ</button>
+        <button class="btn-act apply case-btn" data-case="title" style="padding: 6px 8px; text-align: center;">🔤 Viết Hoa Đầu Từ</button>
+        <button class="btn-act apply case-btn" data-case="sentence" style="padding: 6px 8px; text-align: center;">📝 Viết hoa đầu câu</button>
+      </div>
+    `);
+
+    bubble.querySelectorAll(".case-btn").forEach(btn => {
+      btn.onclick = async () => {
+        const caseType = btn.getAttribute("data-case");
+        btn.disabled = true;
+        btn.textContent = "⏳ Đang đổi...";
+        setStatus("⏳ Đang chuyển đổi kiểu chữ...");
+        try {
+          const res = await bridge.changeSelectionCase(caseType);
+          if (res.success) {
+            const detail = isWord ? `văn bản đã chọn` : `${res.count} ô`;
+            appendMessageBubble("bot", `✅ <b>Đã đổi kiểu chữ thành công cho ${detail}!</b>`);
+            setStatus("✓ Đã đổi kiểu chữ");
+          } else {
+            appendMessageBubble("bot", `⚠️ ${res.message}`);
+            setStatus("✦ Hướng dẫn");
+          }
+        } catch (err) {
+          appendMessageBubble("bot", `❌ Lỗi: ${err.message}`);
+          setStatus("❌ Lỗi đổi chữ");
+        }
+      };
+    });
+    return;
+  }
 
   // 0. Mở bảng Dịch thuật & Thuật ngữ
   if (actionCode === "word_translate" || actionCode === "excel_translate") {
