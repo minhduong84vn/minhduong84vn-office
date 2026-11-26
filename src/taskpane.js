@@ -220,6 +220,11 @@ function renderQuickChips(host) {
   const chips = host === "Excel" ? [
     { label: "🔤 Chuyển mã Font", action: "excel_convert_font" },
     { label: "🔤 Sắp xếp A-Z (Tên)", action: "excel_sort_vietnamese" },
+    { label: "🧩 Gộp ô giữ chữ", action: "excel_safe_merge" },
+    { label: "💎 Lọc không trùng", action: "excel_extract_unique" },
+    { label: "👁️ Hiện toàn bộ Sheet", action: "excel_unhide_sheets" },
+    { label: "🎨 Tổng theo màu", action: "excel_sum_by_color" },
+    { label: "📐 Ký hiệu m², m³", action: "excel_insert_symbol" },
     { label: "🧹 Xóa Name rác #REF", action: "excel_clean_names" },
     { label: "🎨 Tô màu xen kẽ", action: "excel_zebra" },
     { label: "🗑️ Xóa hàng trắng", action: "excel_delete_empty_rows" },
@@ -235,7 +240,9 @@ function renderQuickChips(host) {
     { label: "📊 Viết báo cáo từ bảng", action: "excel_report" }
   ] : [
     { label: "🔤 Chuyển mã Font", action: "word_convert_font" },
+    { label: "💵 Đổi số thành chữ VND", action: "word_num_to_words" },
     { label: "📅 Chèn ngày tháng", action: "word_insert_admin_date" },
+    { label: "📐 Ký hiệu m², m³", action: "word_insert_symbol" },
     { label: "🔠 Đổi HOA/thường", action: "word_change_case" },
     { label: "📐 Căn lề chuẩn NĐ 30", action: "word_format_nd30" },
     { label: "📑 Mẫu văn bản NĐ 30", action: "word_templates" },
@@ -489,7 +496,10 @@ async function handleQuickAction(actionCode) {
     "excel_clean_text", "excel_scan_errors", "word_templates",
     "excel_convert_font", "word_convert_font", "excel_sort_vietnamese",
     "excel_clean_names", "excel_delete_empty_rows", "excel_zebra",
-    "word_insert_admin_date", "word_change_case", "excel_change_case"
+    "word_insert_admin_date", "word_change_case", "excel_change_case",
+    "excel_safe_merge", "excel_extract_unique", "excel_unhide_sheets",
+    "excel_sum_by_color", "word_num_to_words", "excel_insert_symbol",
+    "word_insert_symbol"
   ];
 
   if (!gemini.hasApiKey() && !localActions.includes(actionCode)) {
@@ -719,6 +729,181 @@ async function handleQuickAction(actionCode) {
           appendMessageBubble("bot", `❌ Lỗi: ${err.message}`);
           setStatus("❌ Lỗi đổi chữ");
         }
+      };
+    });
+    return;
+  }
+
+  // 8. Gộp ô an toàn không mất dữ liệu (Excel)
+  if (actionCode === "excel_safe_merge") {
+    const bubble = appendMessageBubble("bot", `
+      <b>🧩 GỘP Ô AN TOÀN KHÔNG MẤT DỮ LIỆU</b><br/>
+      <small style="color: #64748b;">(Khắc phục nhược điểm của nút Merge Excel - Nối toàn bộ nội dung của các ô lại với nhau):</small>
+      <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <label style="font-size: 11px; font-weight: 600;">Dấu nối giữa các ô:</label>
+          <select class="select-input merge-sep-select" style="font-size: 11px; padding: 3px 6px; flex: 1;">
+            <option value=" ">Khoảng trắng ( )</option>
+            <option value=", " selected>Dấu phẩy (, )</option>
+            <option value="; ">Dấu chấm phẩy (; )</option>
+            <option value=" - ">Dấu gạch nối ( - )</option>
+            <option value="&#10;">Xuống dòng (Alt + Enter)</option>
+          </select>
+        </div>
+        <button type="button" class="btn-primary btn-do-safe-merge" style="padding: 6px 12px; font-size: 12px;">
+          ⚡ Gộp các ô đang chọn
+        </button>
+      </div>
+    `);
+
+    const sel = bubble.querySelector(".merge-sep-select");
+    const btn = bubble.querySelector(".btn-do-safe-merge");
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.textContent = "⏳ Đang gộp ô...";
+      setStatus("⏳ Đang gộp ô...");
+      try {
+        const sep = sel.value === "&#10;" ? "\n" : sel.value;
+        const res = await bridge.mergeCellsKeepingData(sep);
+        if (res.success) {
+          btn.textContent = `✓ Đã gộp thành công ${res.count} ô!`;
+          setStatus(`✓ Đã gộp ${res.count} ô an toàn`);
+          appendMessageBubble("bot", `✅ <b>Đã gộp ${res.count} ô thành công!</b> Nội dung đã được nối đầy đủ:<br/><i>"${escapeHtml(res.text)}"</i>`);
+        } else {
+          btn.disabled = false;
+          btn.textContent = "⚡ Thử lại";
+          appendMessageBubble("bot", `⚠️ ${res.message}`);
+          setStatus("✦ Hướng dẫn");
+        }
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = "⚡ Thử lại";
+        appendMessageBubble("bot", `❌ Lỗi: ${err.message}`);
+        setStatus("❌ Lỗi gộp ô");
+      }
+    };
+    return;
+  }
+
+  // 9. Trích xuất danh sách duy nhất không trùng (Excel)
+  if (actionCode === "excel_extract_unique") {
+    setStatus("⏳ Đang lọc các giá trị duy nhất...");
+    try {
+      const res = await bridge.extractUniqueValuesExcel();
+      if (res.success) {
+        appendMessageBubble("bot", `💎 <b>Đã lọc thành công ${res.uniqueCount} giá trị duy nhất!</b><br/><small style="color: #64748b;">(Từ ${res.originalCount} ô ban đầu, đã loại bỏ toàn bộ dữ liệu trùng lặp và ghi tự động sang cột bên cạnh).</small>`);
+        setStatus(`✓ Đã lọc ${res.uniqueCount} mục duy nhất`);
+      } else {
+        appendMessageBubble("bot", `⚠️ ${res.message}`);
+        setStatus("✦ Hướng dẫn");
+      }
+    } catch (err) {
+      appendMessageBubble("bot", `❌ Lỗi: ${err.message}`);
+      setStatus("❌ Lỗi lọc");
+    }
+    return;
+  }
+
+  // 10. Bỏ ẩn toàn bộ Sheet (Excel)
+  if (actionCode === "excel_unhide_sheets") {
+    setStatus("⏳ Đang quét các Sheet bị ẩn...");
+    try {
+      const res = await bridge.unhideAllSheetsExcel();
+      if (res.success) {
+        if (res.unhiddenCount > 0) {
+          appendMessageBubble("bot", `👁️ <b>Đã bỏ ẩn thành công ${res.unhiddenCount} Sheet!</b><br/>• Các Sheet vừa hiện: <b>${res.unhiddenNames.join(', ')}</b><br/>• Tổng số Sheet trong Workbook: <b>${res.totalSheets}</b>`);
+          setStatus(`✓ Đã hiện ${res.unhiddenCount} sheet`);
+        } else {
+          appendMessageBubble("bot", `🟢 <b>Không có Sheet nào bị ẩn!</b> Toàn bộ ${res.totalSheets} Sheet trong Workbook hiện đều đang hiển thị bình thường.`);
+          setStatus("✦ Không có sheet ẩn");
+        }
+      } else {
+        appendMessageBubble("bot", `⚠️ ${res.message}`);
+        setStatus("✦ Hướng dẫn");
+      }
+    } catch (err) {
+      appendMessageBubble("bot", `❌ Lỗi: ${err.message}`);
+      setStatus("❌ Lỗi hiển thị Sheet");
+    }
+    return;
+  }
+
+  // 11. Tính tổng theo màu nền (Excel)
+  if (actionCode === "excel_sum_by_color") {
+    setStatus("⏳ Đang phân tích màu sắc và tính tổng...");
+    try {
+      const res = await bridge.sumByColorExcel();
+      if (res.success) {
+        let msg = `🎨 <b>KẾT QUẢ TÍNH TỔNG THEO MÀU SẮC (${res.totalCells} ô đã chọn):</b><br/>`;
+        msg += `<div style="display: flex; flex-direction: column; gap: 5px; margin-top: 8px;">`;
+        res.groups.forEach(g => {
+          const colorBox = `<span style="display:inline-block; width:14px; height:14px; background:${g.color}; border:1px solid #94a3b8; border-radius:3px; vertical-align:middle; margin-right:5px;"></span>`;
+          const sumFormatted = Number(g.sum).toLocaleString('vi-VN');
+          const label = g.isNoColor ? "Không màu (Nền trắng)" : `Màu ${g.color}`;
+          msg += `<div style="background:#f8fafc; padding:4px 8px; border-radius:4px; border:1px solid #e2e8f0;">${colorBox} <b>${label}</b>: <span style="color:#2563eb; font-weight:700;">${sumFormatted}</span> (${g.count} ô)</div>`;
+        });
+        msg += `</div>`;
+        appendMessageBubble("bot", msg);
+        setStatus("✓ Đã tính tổng theo màu");
+      } else {
+        appendMessageBubble("bot", `⚠️ ${res.message}`);
+        setStatus("✦ Hướng dẫn");
+      }
+    } catch (err) {
+      appendMessageBubble("bot", `❌ Lỗi: ${err.message}`);
+      setStatus("❌ Lỗi tính màu");
+    }
+    return;
+  }
+
+  // 12. Đổi số thành chữ VND trên Word
+  if (actionCode === "word_num_to_words") {
+    setStatus("⏳ Đang đọc số tiền thành chữ VND...");
+    try {
+      const res = await bridge.convertNumberToWordsWord();
+      if (res.success) {
+        appendMessageBubble("bot", `💵 <b>Đã đổi số tiền thành chữ thành công!</b><br/>• Số tiền: <b>${res.number.toLocaleString('vi-VN')} đ</b><br/>• Bằng chữ: <i>"${res.words}"</i><br/><small style="color: #64748b;">(Đã tự động chèn ngay sau số tiền được chọn trên Word).</small>`);
+        setStatus("✓ Đã đọc số thành chữ");
+      } else {
+        appendMessageBubble("bot", `⚠️ ${res.message}`);
+        setStatus("✦ Hướng dẫn");
+      }
+    } catch (err) {
+      appendMessageBubble("bot", `❌ Lỗi: ${err.message}`);
+      setStatus("❌ Lỗi đọc số");
+    }
+    return;
+  }
+
+  // 13. Bảng ký hiệu đơn vị đo lường & chỉ số trên/dưới
+  if (actionCode === "excel_insert_symbol" || actionCode === "word_insert_symbol") {
+    const isWord = actionCode === "word_insert_symbol";
+    const bubble = appendMessageBubble("bot", `
+      <b>📐 CHÈN NHANH KÝ HIỆU ĐƠN VỊ ĐO LƯỜNG & TOÁN HỌC</b><br/>
+      <small style="color: #64748b;">(Bấm vào ký hiệu để chèn ngay vào vị trí con trỏ ${isWord ? 'trên Word' : 'trên Excel'}):</small>
+      <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px;">
+        <button class="btn-act symbol-btn" data-sym="m²" style="font-weight: 700; padding: 4px 8px;">m²</button>
+        <button class="btn-act symbol-btn" data-sym="m³" style="font-weight: 700; padding: 4px 8px;">m³</button>
+        <button class="btn-act symbol-btn" data-sym="cm²" style="font-weight: 700; padding: 4px 8px;">cm²</button>
+        <button class="btn-act symbol-btn" data-sym="cm³" style="font-weight: 700; padding: 4px 8px;">cm³</button>
+        <button class="btn-act symbol-btn" data-sym="mm²" style="font-weight: 700; padding: 4px 8px;">mm²</button>
+        <button class="btn-act symbol-btn" data-sym="km²" style="font-weight: 700; padding: 4px 8px;">km²</button>
+        <button class="btn-act symbol-btn" data-sym="°C" style="font-weight: 700; padding: 4px 8px;">°C</button>
+        <button class="btn-act symbol-btn" data-sym="±" style="font-weight: 700; padding: 4px 8px;">±</button>
+        <button class="btn-act symbol-btn" data-sym="≠" style="font-weight: 700; padding: 4px 8px;">≠</button>
+        <button class="btn-act symbol-btn" data-sym="≤" style="font-weight: 700; padding: 4px 8px;">≤</button>
+        <button class="btn-act symbol-btn" data-sym="≥" style="font-weight: 700; padding: 4px 8px;">≥</button>
+        <button class="btn-act symbol-btn" data-sym="≈" style="font-weight: 700; padding: 4px 8px;">≈</button>
+        <button class="btn-act symbol-btn" data-sym="Ø" style="font-weight: 700; padding: 4px 8px;">Ø</button>
+        <button class="btn-act symbol-btn" data-sym="‰" style="font-weight: 700; padding: 4px 8px;">‰</button>
+      </div>
+    `);
+
+    bubble.querySelectorAll(".symbol-btn").forEach(btn => {
+      btn.onclick = async () => {
+        const sym = btn.getAttribute("data-sym");
+        await bridge.insertMeasurementSymbol(sym);
+        setStatus(`✓ Đã chèn ${sym}`);
       };
     });
     return;

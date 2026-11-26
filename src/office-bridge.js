@@ -1085,6 +1085,234 @@ export class OfficeBridge {
       return { success: true, rowCount: selection.rowCount };
     });
   }
+
+  /**
+   * Gộp nhiều ô lại thành một mà KHÔNG làm mất dữ liệu (nối chuỗi các ô)
+   */
+  async mergeCellsKeepingData(separator = " ") {
+    if (this.host !== "Excel") return { success: false, message: "Chức năng chỉ hỗ trợ trên Excel" };
+
+    return await Excel.run(async (context) => {
+      const range = context.workbook.getSelectedRange();
+      range.load(["values", "rowCount", "columnCount"]);
+      await context.sync();
+
+      if (range.rowCount <= 1 && range.columnCount <= 1) {
+        return { success: false, message: "Vui lòng chọn từ 2 ô trở lên để gộp." };
+      }
+
+      const texts = [];
+      for (let r = 0; r < range.rowCount; r++) {
+        for (let c = 0; c < range.columnCount; c++) {
+          const val = range.values[r][c];
+          if (val !== null && val !== undefined && String(val).trim() !== "") {
+            texts.push(String(val).trim());
+          }
+        }
+      }
+
+      if (texts.length === 0) {
+        return { success: false, message: "Các ô được chọn không có nội dung chữ." };
+      }
+
+      const mergedText = texts.join(separator);
+      range.merge(false);
+      range.values = [[mergedText]];
+      await context.sync();
+
+      return { success: true, count: texts.length, text: mergedText };
+    });
+  }
+
+  /**
+   * Lọc và trích xuất danh sách duy nhất không trùng (Unique values) sang cột bên cạnh
+   */
+  async extractUniqueValuesExcel() {
+    if (this.host !== "Excel") return { success: false, message: "Chức năng chỉ hỗ trợ trên Excel" };
+
+    return await Excel.run(async (context) => {
+      const selection = context.workbook.getSelectedRange();
+      selection.load(["values", "rowCount", "columnCount", "rowIndex", "columnIndex"]);
+      await context.sync();
+
+      const seen = new Set();
+      const uniqueList = [];
+      for (let r = 0; r < selection.rowCount; r++) {
+        for (let c = 0; c < selection.columnCount; c++) {
+          const val = selection.values[r][c];
+          if (val !== null && val !== undefined && String(val).trim() !== "") {
+            const str = String(val).trim();
+            if (!seen.has(str)) {
+              seen.add(str);
+              uniqueList.push(str);
+            }
+          }
+        }
+      }
+
+      if (uniqueList.length === 0) {
+        return { success: false, message: "Vùng chọn không có dữ liệu." };
+      }
+
+      const sheet = context.workbook.worksheets.getActiveWorksheet();
+      const destCol = selection.columnIndex + selection.columnCount;
+      const destRange = sheet.getRangeByIndexes(selection.rowIndex, destCol, uniqueList.length, 1);
+      destRange.values = uniqueList.map(v => [v]);
+      destRange.format.autofitColumns();
+      await context.sync();
+
+      return {
+        success: true,
+        originalCount: selection.rowCount * selection.columnCount,
+        uniqueCount: uniqueList.length
+      };
+    });
+  }
+
+  /**
+   * Quét và hiển thị toàn bộ các Sheet bị ẩn (Unhide All Sheets)
+   */
+  async unhideAllSheetsExcel() {
+    if (this.host !== "Excel") return { success: false, message: "Chức năng chỉ hỗ trợ trên Excel" };
+
+    return await Excel.run(async (context) => {
+      const sheets = context.workbook.worksheets;
+      sheets.load(["items", "name", "visibility"]);
+      await context.sync();
+
+      let unhiddenCount = 0;
+      const unhiddenNames = [];
+      for (const s of sheets.items) {
+        if (s.visibility !== Excel.SheetVisibility.visible) {
+          s.visibility = Excel.SheetVisibility.visible;
+          unhiddenCount++;
+          unhiddenNames.push(s.name);
+        }
+      }
+
+      await context.sync();
+      return {
+        success: true,
+        unhiddenCount,
+        unhiddenNames,
+        totalSheets: sheets.items.length
+      };
+    });
+  }
+
+  /**
+   * Tính tổng các ô theo từng nhóm màu nền (Sum by Fill Color)
+   */
+  async sumByColorExcel() {
+    if (this.host !== "Excel") return { success: false, message: "Chức năng chỉ hỗ trợ trên Excel" };
+
+    return await Excel.run(async (context) => {
+      const selection = context.workbook.getSelectedRange();
+      selection.load(["values", "rowCount", "columnCount"]);
+      await context.sync();
+
+      const totalCells = selection.rowCount * selection.columnCount;
+      if (totalCells > 1200) {
+        return { success: false, message: "Vui lòng chọn vùng dưới 1.200 ô để phân tích màu nhanh chóng." };
+      }
+
+      const cellRefs = [];
+      for (let r = 0; r < selection.rowCount; r++) {
+        for (let c = 0; c < selection.columnCount; c++) {
+          const cell = selection.getCell(r, c);
+          cell.load(["values"]);
+          cell.format.fill.load("color");
+          cellRefs.push(cell);
+        }
+      }
+      await context.sync();
+
+      const groups = {};
+      for (const cell of cellRefs) {
+        let color = String(cell.format.fill.color || "").toUpperCase();
+        if (!color || color === "#FFFFFF" || (color === "#000000" && !cell.format.fill.color)) {
+          color = "NO_COLOR";
+        }
+        const val = Number(cell.values[0][0]);
+        const num = (!isNaN(val) && isFinite(val)) ? val : 0;
+
+        if (!groups[color]) {
+          groups[color] = { color, count: 0, sum: 0 };
+        }
+        groups[color].count++;
+        groups[color].sum += num;
+      }
+
+      const resultGroups = Object.values(groups).map(g => ({
+        color: g.color === "NO_COLOR" ? "#FFFFFF" : g.color,
+        isNoColor: g.color === "NO_COLOR",
+        count: g.count,
+        sum: g.sum
+      }));
+
+      return { success: true, groups: resultGroups, totalCells };
+    });
+  }
+
+  /**
+   * Đọc số tiền đã bôi đen trên Microsoft Word thành chữ VND
+   */
+  async convertNumberToWordsWord() {
+    if (this.host !== "Word") return { success: false, message: "Chức năng chỉ hỗ trợ trên Word" };
+
+    return await Word.run(async (context) => {
+      const selection = context.document.getSelection();
+      selection.load("text");
+      await context.sync();
+
+      const text = selection.text ? selection.text.trim() : "";
+      if (!text) {
+        return { success: false, message: "Vui lòng bôi đen con số cần đổi thành chữ (Ví dụ: 15.000.000)." };
+      }
+
+      const cleanNumStr = text.replace(/[^0-9]/g, "");
+      if (!cleanNumStr) {
+        return { success: false, message: "Đoạn văn bản được chọn không chứa số hợp lệ." };
+      }
+
+      const num = Number(cleanNumStr);
+      const words = numberToVietnameseWords(num);
+
+      const inserted = selection.insertText(` (${words})`, Word.InsertLocation.after);
+      inserted.font.name = "Times New Roman";
+      inserted.font.italic = true;
+      await context.sync();
+
+      return { success: true, number: num, words };
+    });
+  }
+
+  /**
+   * Chèn nhanh ký hiệu đơn vị đo lường diện tích, thể tích, nhiệt độ (m², m³, cm², cm³, °C...)
+   */
+  async insertMeasurementSymbol(symbol = "m²") {
+    if (this.host === "Word") {
+      return await Word.run(async (context) => {
+        const selection = context.document.getSelection();
+        selection.insertText(symbol, Word.InsertLocation.replace);
+        await context.sync();
+        return { success: true, symbol };
+      });
+    } else if (this.host === "Excel") {
+      return await Excel.run(async (context) => {
+        const selection = context.workbook.getSelectedRange();
+        selection.load(["values", "rowCount", "columnCount"]);
+        await context.sync();
+
+        if (selection.rowCount === 1 && selection.columnCount === 1) {
+          const current = String(selection.values[0][0] || "");
+          selection.values = [[current + symbol]];
+        }
+        await context.sync();
+        return { success: true, symbol };
+      });
+    }
+  }
 }
 
 /**
