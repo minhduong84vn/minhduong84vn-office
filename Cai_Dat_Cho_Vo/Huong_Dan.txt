@@ -1,0 +1,18 @@
+﻿======================================================
+HƯỚNG DẪN CÀI ĐẶT TRỢ LÝ MINHDUONG84VN AI (WORD & EXCEL)
+======================================================
+
+Bước 1: TẮT hoàn toàn Microsoft Word và Excel (nếu đang mở).
+
+Bước 2: Nhấp đúp chuột (Double click) vào tệp:
+        "Cai_Dat_Addin_May_Vo.bat"
+        Chờ 2 giây thấy thông báo "CAI DAT HOAN TAT THANH CONG!" là xong!
+
+Bước 3: Mở Word hoặc Excel lên:
+        * Chọn "Tài liệu trống" (Blank Document) hoặc mở 1 file bất kỳ.
+        * Nhìn ở góc phải thanh công cụ Trang chủ (Home) sẽ xuất hiện biểu tượng:
+          ✦ MinhDuong84vn AI
+        * Bấm vào nút để mở khung trợ lý và sử dụng đầy đủ các tiện ích.
+
+(Sau khi cài xong, bạn có thể xóa thư mục này, không ảnh hưởng đến Add-in)
+
